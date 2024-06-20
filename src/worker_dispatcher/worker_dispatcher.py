@@ -37,7 +37,7 @@ default_config = {
         'use_processing': False,        # To break GIL, workers will be based on processing pool.
         'parallel_processing': {        # To break GIL and require a number of workers greater than the number of CPU cores.
             'enabled': False,           # `worker.use_processing` setting will be ignored when enabled. The actual number of workers will be adjusted to a multiple of the CPU core count.
-            'use_queue': False,         # Enable the use of a task queue instead of task dispatch, which allows specifying the number of workers but may be limited by your device.
+            'use_queue': False,         # Enable a task queue to specify the number of workers without adjustment, though the maximum may be limited by your device.
         },   
     },
     'runtime': None,                    # Dispatcher max runtime in seconds.
