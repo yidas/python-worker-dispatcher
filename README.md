@@ -15,9 +15,11 @@ A flexible task dispatcher for Python with multiple threading or processing cont
 Features
 --------
 
-- ***Tasks Dispatching** to managed worker*
+- ***Tasks Dispatching** to managed workers*
 
 - ***Elegant Interface** for setup and use*
+
+- ***Various modes** to choose from*  
 
 ---
 
@@ -141,7 +143,7 @@ $ pip install worker-dispatcher
 USAGE
 -----
 
-By calling the `start()` methid with the configuration parameter, the package will begin dispatching tasks while managing threading or processing based on the provided settings. Once the tasks are completed, the package will return all the results.
+By calling the `start()` method with the configuration parameters, the package will begin dispatching tasks while managing threading or processing based on the provided settings. Once the tasks are completed, the package will return all the results.
 
 An example configuration setting with all options is as follows:
 
@@ -167,7 +169,7 @@ results = worker_dispatcher.start({
         'use_processing': False,        # To break GIL, workers will be based on processing pool.
         'parallel_processing': {        # To break GIL and require a number of workers greater than the number of CPU cores.
             'enabled': False,           # `worker.use_processing` setting will be ignored when enabled. The actual number of workers will be adjusted to a multiple of the CPU core count.
-            'use_queue': False,         # Enable the use of a task queue instead of task dispatch, which allows specifying the number of workers but may be limited by your device.
+            'use_queue': False,         # Enable a task queue to specify the number of workers without adjustment, though the maximum may be limited by your device.
         },   
     },
     'runtime': None,                    # Dispatcher max runtime in seconds
