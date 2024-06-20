@@ -15,9 +15,11 @@ A flexible task dispatcher for Python with multiple threading or processing cont
 Features
 --------
 
-- ***Tasks Dispatching** to managed worker*
+- ***Tasks Dispatching** to managed workers*
 
 - ***Elegant Interface** for setup and use*
+
+- ***Various modes** to choose from*  
 
 ---
 
