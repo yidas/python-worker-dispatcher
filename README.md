@@ -143,7 +143,7 @@ $ pip install worker-dispatcher
 USAGE
 -----
 
-By calling the `start()` methid with the configuration parameter, the package will begin dispatching tasks while managing threading or processing based on the provided settings. Once the tasks are completed, the package will return all the results.
+By calling the `start()` method with the configuration parameters, the package will begin dispatching tasks while managing threading or processing based on the provided settings. Once the tasks are completed, the package will return all the results.
 
 An example configuration setting with all options is as follows:
 
