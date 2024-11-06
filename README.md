@@ -264,7 +264,7 @@ result_callback_function (id: int, config, result, log: dict)
 Perform a stress test scenario with 10 requests per second.
 
 ```python
-import worker_dispatcher, requests
+import worker_dispatcher
 
 def each_task(id, config, task, log):
     response = None
@@ -276,19 +276,20 @@ def each_task(id, config, task, log):
 
 responses = worker_dispatcher.start({
     'task': {
-        'list': 5000,
+        'list': 600,
         'callback': each_task,
         'config': {
             'my_endpoint': 'https://your.name/api'
         },
     },
+    # Light Load with 10 RPS
     'worker': {
         'number': 10,
         'frequency_mode': {
             'enabled': True, 
             'interval': 1,
         },
-    }
+    },
 })
 
 print(worker_dispatcher.get_logs())
