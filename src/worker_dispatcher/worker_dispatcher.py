@@ -45,6 +45,7 @@ default_config = {
 }
 
 # Global variable
+last_config = {}
 results = []
 logs = []
 result_info = {}
@@ -52,12 +53,13 @@ result_info = {}
 # Start function
 def start(user_config: dict) -> list:
 
-    global results, logs, result_info
+    global last_config, results, logs, result_info
     results = []
     logs = []
 
     # Merge config with 2 level
-    config = _merge_dicts_recursive(default_config, user_config)
+    last_config = _merge_dicts_recursive(default_config, user_config)
+    config = last_config
     # config = copy.deepcopy(default_config)
     # for level1_key in config.keys():
     #     if level1_key in user_config:
@@ -754,6 +756,9 @@ def _tps_calculate(started_at: float, ended_at: float, logs: list, display_valid
 
 def _validate_log_format(log) -> bool:
     return all(key in log for key in ('started_at', 'ended_at', 'result'))
+
+def get_last_config() -> dict:
+    return last_config
 
 def get_results() -> list:
     return results
