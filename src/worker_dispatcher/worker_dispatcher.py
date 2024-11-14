@@ -704,7 +704,7 @@ def _tps_calculate(started_at: float, ended_at: float, logs: list, display_valid
         exec_time_min = exec_time if not exec_time_min or exec_time < exec_time_min else exec_time_min
         # Success case check
         result = log['result']
-        if (isinstance(result, requests.Response) and result.status_code != 200) or not result:
+        if not result_is_success(result):
             continue
         # Rewrite success_id_set if in the argument
         if isinstance(success_id_set, set):
@@ -756,6 +756,12 @@ def _tps_calculate(started_at: float, ended_at: float, logs: list, display_valid
 
 def _validate_log_format(log) -> bool:
     return all(key in log for key in ('started_at', 'ended_at', 'result'))
+
+def result_is_success(result) -> bool:
+    if (isinstance(result, requests.Response) and result.status_code != 200) or not result:
+        return False
+    else:
+        return True
 
 def get_last_config() -> dict:
     return last_config
