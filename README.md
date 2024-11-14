@@ -203,7 +203,7 @@ results = worker_dispatcher.start({
 The callback function called by each worker runs
 
 ```python
-callback_function (id: int, config, task, log: dict)
+callback_function (id: int, config, task, log: dict) -> Any
 ```
 
 |Argument          |Type     |Deafult      |Description|
@@ -213,13 +213,15 @@ callback_function (id: int, config, task, log: dict)
 |task              |multitype|(custom)     |Each value from the `task.list`|
 |log               |dict     |{}           |The log from each task written by this callback function.|
 
+> The return value can be `False` to indicate task failure in TPS logs.  
+> Alternatively, it can be a `requests.Response`, indicating failure if the status code is not 200.
 
 #### task.result_callback
 
 The callback function called when each task processes the result
 
 ```python
-result_callback_function (id: int, config, result, log: dict)
+result_callback_function (id: int, config, result, log: dict) -> Any
 ```
 
 |Argument          |Type     |Deafult      |Description|
@@ -253,9 +255,7 @@ result_callback_function (id: int, config, result, log: dict)
   ```python
   def get_tps(logs: dict=None, debug: bool=False, interval: float=0, reverse_interval: bool = False, display_intervals: bool = False) -> dict:
   ```
-  The log dict matches the format of the [get_logs()](#get_logs) and refers to it by default. Each `result` of a log will be considered valid if it meets one of the following conditions:
-  - It is a `requests.Response` object with a status code of 200
-  - It is a valid value other than the aforementioned object
+  The log dict matches the format of the [get_logs()](#get_logs) and refers to it by default. Each task within a log will be validated for success according to the [callback_function](#task.result_callback) result rule.
 
 ### Scenarios
 
