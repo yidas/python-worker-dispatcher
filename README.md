@@ -253,7 +253,7 @@ result_callback_function (id: int, config, result, log: dict) -> Any
 - #### get_tps()
     Get TPS report in dict type after completing `start()` or by passing a list data.
   ```python
-  def get_tps(logs: dict=None, debug: bool=False, interval: float=0, reverse_interval: bool = False, display_intervals: bool = False) -> dict:
+  def get_tps(logs: dict=None, debug: bool=False, display_intervals: bool = False, interval: float=0, reverse_interval: bool = False) -> dict:
   ```
   The log dict matches the format of the [get_logs()](#get_logs) and refers to it by default. 
   Each task within a log will be validated for success according to the [callback_function()](#task.result_callback) result rule.

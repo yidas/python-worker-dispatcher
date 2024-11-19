@@ -564,9 +564,9 @@ def _merge_dicts_recursive(default_dict, user_dict):
 def get_tps(
     logs: dict = None,
     debug: bool = False,
+    display_intervals: bool = False,
     interval: float = 0,
     reverse_interval: bool = False,
-    display_intervals: bool = False
 ) -> dict:
     
     # Logs data check
