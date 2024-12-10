@@ -1,0 +1,72 @@
+@startuml
+
+skinparam linetype ortho
+
+package "Threads only - Default Setting" {
+
+  
+  database "Tasks" as d_tasks {
+  }
+  package "Thread Pool (GIL)" as d_t_pool {
+    [Thread] as d_t1
+    [Thread] as d_t2
+  }
+  [CPU Core] as d_core
+  [CPU Core] as d_core2
+  d_core -right.- d_core2
+  
+  d_tasks -down-> d_t_pool
+  d_core -up- d_t1
+  d_core -up- d_t2
+  note top of d_t_pool: max_workers is based on worker.number
+}
+
+package "Process only - use_processing" {
+
+  database "Tasks" as p_tasks {
+  }
+  package "Process Pool" as p_p_pool {
+    [Process] as p_p1
+    [Process] as p_p2
+  }
+  [CPU Core] as p_core
+  [CPU Core] as p_core2
+  p_core -right.- p_core2
+  
+  p_tasks -down-> p_p_pool
+  p_core -up- p_p1
+  p_core2 -up- p_p2
+  note top of p_p_pool: max_workers is based on worker.number
+}
+
+package "Parallel - parallel_processing" {
+
+  database "Tasks" as pp_tasks {
+  }
+  package "Thread Pool (GIL)" as pp_t_pool {
+    [Thread] as pp_t1
+    [Thread] as pp_t2
+  }
+  package "Thread Pool (GIL)" as pp_t_pool2 {
+    [Thread] as pp_t3
+    [Thread] as pp_t4
+  }
+  package "Process Pool" as pp_p_pool {
+    [Process] as pp_p1
+    [Process] as pp_p2
+  }
+  [CPU Core] as pp_core
+  [CPU Core] as pp_core2
+  pp_core -right.- pp_core2
+  
+  pp_tasks -down-> pp_t_pool
+  pp_tasks -down-> pp_t_pool2
+  pp_p1 -up- pp_t_pool
+  pp_p2 -up- pp_t_pool2
+  pp_core -up- pp_p1
+  pp_core2 -up- pp_p2
+  note top of pp_t_pool2: max_workers is distributed evenly
+  note bottom of pp_p_pool: max_workers is based on CPU cores
+}
+
+@enduml
