@@ -40,6 +40,8 @@ OUTLINE
         - [get_tps()](#get_tps)
     - [Scenarios](#scenarios)
         - [Stress Test](#stress-test)
+- [Appendix]
+    - [Mode Explanation](#mode-explanation) 
 
 ---
 
@@ -297,6 +299,15 @@ print(worker_dispatcher.get_logs())
 print(worker_dispatcher.get_tps())
 ```
 
+---
+
+## Appendix
+
+### Mode Explanation
+
+Here are the differences between the various modes, such as enabling `use_processing` or `parallel_processing`
+
+![Mode Explanation](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/yidas/python-worker-dispatcher/main/img/mode-explanation.planuml&v=1)
 
 
 
