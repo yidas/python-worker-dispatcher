@@ -40,6 +40,8 @@ OUTLINE
         - [get_tps()](#get_tps)
     - [Scenarios](#scenarios)
         - [Stress Test](#stress-test)
+- [Appendix](#appendix)
+    - [Mode Explanation](#mode-explanation) 
 
 ---
 
@@ -297,8 +299,23 @@ print(worker_dispatcher.get_logs())
 print(worker_dispatcher.get_tps())
 ```
 
+---
 
+## Appendix
 
+### Mode Explanation
+
+Here are the differences between the various modes, such as enabling `use_processing` or `parallel_processing`
+
+![Mode Explanation](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/yidas/python-worker-dispatcher/main/img/mode-explanation.planuml&v=1)
+
+The suitable application scenarios are as follows:
+- **default**:  
+  Suitable for asynchronous I/O tasks. Using too many workers (threads) may lead to significant context switching on a CPU core, which can degrade performance.
+- **use_processing**:  
+  Intended for CPU-intensive tasks. Using too many workers (processes) may slow down initialization and increase memory usage accordingly.
+- **parallel_processing**:  
+  Optimized for tasks that fully utilize the CPU with many workers in `frequency_mode`, maintaining both performance and resources.
 
 
 
