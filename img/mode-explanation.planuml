@@ -66,7 +66,7 @@ package "Parallel - parallel_processing" {
   pp_core -up- pp_p1
   pp_core2 -up- pp_p2
   note top of pp_t_pool2: max_workers is distributed evenly
-  note bottom of pp_p_pool: max_workers is based on CPU cores
+  note left of pp_p_pool: max_workers is based on CPU cores
 }
 
 @enduml
