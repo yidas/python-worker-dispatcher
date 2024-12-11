@@ -299,6 +299,8 @@ print(worker_dispatcher.get_logs())
 print(worker_dispatcher.get_tps())
 ```
 
+> The stress tool, based on this dispatcher, along with statistical TPS reports, is as follows: [yidas / python-stress-tool](https://github.com/yidas/python-stress-tool)
+
 ---
 
 ## Appendix
