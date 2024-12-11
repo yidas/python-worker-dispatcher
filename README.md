@@ -309,7 +309,10 @@ Here are the differences between the various modes, such as enabling `use_proces
 
 ![Mode Explanation](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/yidas/python-worker-dispatcher/main/img/mode-explanation.planuml&v=1)
 
-
+The suitable application scenarios are as follows:
+- default: Suitable for asynchronous I/O tasks. Using too many workers (threads) may lead to significant context switching on a CPU core, which can degrade performance.
+- use_processing: Suitable for CPU-intensive tasks. Using too many workers (processes) may slow down initialization and increase memory usage accordingly.
+- parallel_processing: Suitable for tasks that fully utilize the CPU with many workers in `frequency_mode`, maintaining both performance and resources.
 
 
 
