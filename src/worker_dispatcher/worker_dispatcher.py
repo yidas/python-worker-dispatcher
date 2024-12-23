@@ -563,17 +563,31 @@ def _merge_dicts_recursive(default_dict, user_dict):
 # TPS report
 def get_tps(
     logs: dict = None,
-    debug: bool = False,
     display_intervals: bool = False,
     interval: float = 0,
     reverse_interval: bool = False,
+    use_processing: bool = False,
+    verbose: bool = False,
+    debug: bool = False,
 ) -> dict:
     
+    verbose = True if debug else verbose
+
+    # Multi-processing protection
+    if use_processing:
+        in_child_process = (multiprocessing.current_process().name != 'MainProcess')
+        # Return False if is in worker process to let caller handle
+        if in_child_process:
+            # print("Exit procedure due to the child process")
+            return False
+
     # Logs data check
     logs = logs if logs else get_logs()
     if not isinstance(logs, list):
         return False
     
+    if verbose: print("--- Start calculating the TPS data ---")
+
     # Run the TPS for all
     success_id_set = set()
     main_tps_data = _tps_calculate(False, False, logs, True, success_id_set)
@@ -582,20 +596,39 @@ def get_tps(
     ended_at = main_tps_data['ended_at']
     success_count = main_tps_data['count']['success']
     exec_time_avg = main_tps_data['metrics']['execution_time']['avg']
-    tps = main_tps_data['tps']
+    total_duration = main_tps_data['duration']
+    tps_threshold = main_tps_data['tps']
+
+    if debug: print("  - Average TPS: {}, Total Duration: {}s, Success Count: {}".format(tps_threshold, total_duration, success_count))
 
     # Peak data definition
     peak_tps_data = {}
     
     # Compile Intervals and find peak TPS
+    """
+    Compile Intervals
+    This will also calculate whether the interval TPS exceeds the current one.
+    """
     interval_log_list = []
-    if success_count > 0:
-        interval = interval if interval else round(exec_time_avg * 3, 2) if (exec_time_avg * 3) >= 1 else 5
+    if success_count == 0:
+        if verbose: print("--- No sucessful task to compile intervals ---")
+    else:
+        ideal_max_row_num = 100
+        interval = (
+            interval
+            if interval
+            else round(exec_time_avg * 3, 2)
+            if (total_duration / (exec_time_avg * 3)) <= ideal_max_row_num
+            else math.ceil(total_duration / ideal_max_row_num)
+            if (total_duration / ideal_max_row_num) >= 1
+            else 1
+        )
         interval_success_count = 0
         interval_ended_at = ended_at
         # Reserve option
         interval_pointer = interval_ended_at if reverse_interval else started_at
         interval = interval * -1 if reverse_interval else interval
+        if verbose: print("--- Start to compile intervals with an interval of {} seconds ---".format(interval))
         while started_at <= interval_pointer <= ended_at:
             current_success_count = 0
             # Shift Indicator
@@ -612,46 +645,79 @@ def get_tps(
             # Find the peak
             current_success_count = int(tps_data['count']['success'])
             current_tps = float(tps_data['tps'])
-            if debug: print(" - Interval - Start Time: {}, End Time: {}, TPS: {}".format(peak_started_at, interval_ended_at, current_tps))
+            if debug: print("  - Interval - Start Time: {}, End Time: {}, TPS: {}".format(peak_started_at, interval_ended_at, current_tps))
             if current_success_count and current_success_count > interval_success_count:
                 interval_success_count = current_success_count
-                if debug: print("    * Find peak above the main TPS - Interval TPS: {}, Main TPS: {}".format(current_tps, tps))
                 # Comparing with the main TPS
-                if current_tps > tps:
+                if current_tps > tps_threshold:
+                    if debug: print("    * Peak detected above the current TPS threshold - Interval TPS: {}, Main TPS: {}".format(current_tps, tps_threshold))
                     peak_tps_data = tps_data
+                    # Update the TPS threshold
+                    tps_threshold = current_tps
 
-    # Peak Finding Algorithm
+    """
+    Peak Finding Algorithm with multi-processing support
+    Find each start time with more successes than the current threshold, and then continue adding the duration to gather the verified successes within the period.
+    """
     start_time_counts = {}
-    tps_threshold = float(peak_tps_data['tps']) if peak_tps_data else tps
     peak_started_time = 0
     peak_ended_time = 0
+    if verbose: print("--- Start to find the peak TPS ---")
+    # Divide each successful start time into integers and sum accordingly
     for log in logs:
-        if log['task_id'] in success_id_set:
+        if result_is_success(log['result']):
             key = str(math.floor(log['started_at']))
             start_time_counts[key] = start_time_counts[key] + 1 if key in start_time_counts else 1
-    # Each Calculation
-    for start_time, count in start_time_counts.items():
-        start_time = int(start_time)
-        if count <= tps_threshold:
-            continue
-        if debug: print("- Peak Finding - Start Time: {}, Count: {}, Current TPS Threshold: {}".format(start_time, count, tps_threshold))
-        duration_count = 0
-        remaining_count = count
-        while (start_time + duration_count) <= math.ceil(ended_at):
-            success_count = 0
-            duration_count = ended_at - start_time if (start_time + duration_count) > ended_at else duration_count + 1
-            for log in logs:
-                if math.floor(log['started_at']) >= start_time and math.ceil(log['ended_at']) <= start_time + duration_count:
-                    success_count += 1
-                    remaining_count -= 1
-            # Check Finest
-            cuurent_tps = success_count / duration_count
-            # Find the peak
-            if cuurent_tps > tps_threshold:
-                tps_threshold = cuurent_tps
-                peak_started_time = start_time
-                peak_ended_time = start_time + duration_count
-                if debug: print("    * Find Peak - TPS: {}, Started at: {}, Ended at: {}".format(tps_threshold, peak_started_time, peak_ended_time))     
+
+    # Calculate each division of the start time
+    # Multi-processing support solution
+    wrap_references = {
+        'tps_threshold': tps_threshold,
+        'peak_started_time': peak_started_time,
+        'peak_ended_time': peak_ended_time,
+    }
+    if use_processing:
+        with multiprocessing.Manager() as manager:  # Define Manager inside the pool block
+            managed_wrap_references = manager.dict(wrap_references)
+            lock = manager.Lock()
+            with multiprocessing.Pool(multiprocessing.cpu_count()) as pool:  # Use as many processes as CPU cores
+                # Convert dictionary to a list of (key, value) tuples and process them
+                pool.starmap(_search_peak_by_start_time, [(start_time, count, managed_wrap_references, logs, ended_at, debug, lock) for start_time, count in start_time_counts.items()])
+            wrap_references = dict(managed_wrap_references)
+    else:
+        for start_time, count in start_time_counts.items():
+            _search_peak_by_start_time(start_time, count, wrap_references, logs, ended_at, debug)
+    # Unwrap the references
+    tps_threshold = wrap_references['tps_threshold']
+    peak_started_time = wrap_references['peak_started_time']
+    peak_ended_time = wrap_references['peak_ended_time']
+
+    # for start_time, count in start_time_counts.items():
+    #     start_time = int(start_time)
+    #     # Skip if this start time count cannot exceed the current TPS threshold.
+    #     if count <= tps_threshold:
+    #         continue
+    #     if debug: print("  - Detecting from Start Time: {}, Count: {}, Current TPS Threshold: {}".format(start_time, count, tps_threshold))
+    #     duration_count = 0
+    #     # Count successes for each accumulative period to compare with the current TPS threshold
+    #     while (start_time + duration_count) <= math.ceil(ended_at):
+    #         success_count = 0
+    #         duration_count = ended_at - start_time if (start_time + duration_count) > ended_at else duration_count + 1
+    #         for log in logs:
+    #             if math.floor(log['started_at']) >= start_time and math.ceil(log['ended_at']) <= (start_time + duration_count) and result_is_success(log['result']):
+    #                 success_count += 1
+    #         # Check Finest
+    #         current_tps = success_count / duration_count
+    #         # Find the peak
+    #         if current_tps > tps_threshold:
+    #             tps_threshold = current_tps
+    #             peak_started_time = start_time
+    #             peak_ended_time = start_time + duration_count
+    #             if debug: print("    * Peak detected above the current TPS threshold - TPS: {}, Started at: {}, Ended at: {}".format(tps_threshold, peak_started_time, peak_ended_time))     
+    #         # Detect if this round can be skipped
+    #         if success_count >= count:
+    #             continue
+
     # Aggregation
     if peak_started_time or peak_ended_time:
         peak_tps_data = _tps_calculate(peak_started_time, peak_ended_time, logs)
@@ -754,11 +820,50 @@ def _tps_calculate(started_at: float, ended_at: float, logs: list, display_valid
         tps_data['count']['invalidity'] = total_count - invalid_count
     return tps_data
 
+def _search_peak_by_start_time(start_time, count, wrap_references, logs, ended_at, debug, lock=None):
+    start_time = int(start_time)
+    # Skip if this start time count cannot exceed the current TPS threshold.
+    if count <= wrap_references['tps_threshold']:
+        return
+    if debug: 
+        worker_id = multiprocessing.current_process().name.split('-')[-1]
+        print("  - Detecting from Start Time: {}, Count: {}, Current TPS Threshold: {}, Worker: {}".format(start_time, count, wrap_references['tps_threshold'], worker_id))
+    duration_count = 0
+    # Count successes for each accumulative period to compare with the current TPS threshold
+    while (start_time + duration_count) <= math.ceil(ended_at):
+        success_count = 0
+        duration_count = ended_at - start_time if (start_time + duration_count) > ended_at else duration_count + 1
+        for log in logs:
+            if math.floor(log['started_at']) >= start_time and math.ceil(log['ended_at']) <= (start_time + duration_count) and result_is_success(log['result']):
+                success_count += 1
+        # Check Finest
+        current_tps = success_count / duration_count
+        # Find the peak
+        if current_tps > wrap_references['tps_threshold']:
+            if lock:
+                with lock:
+                    # Lock and check again
+                    if current_tps > wrap_references['tps_threshold']:
+                        _search_peak_by_start_time_write(wrap_references, current_tps, start_time, duration_count, debug)
+            else:
+                _search_peak_by_start_time_write(wrap_references, current_tps, start_time, duration_count, debug)  
+        # Detect if this round can be skipped
+        if success_count >= count:
+            continue
+    return
+
+def _search_peak_by_start_time_write(wrap_references, current_tps, start_time, duration_count, debug):
+    wrap_references['tps_threshold'] = current_tps
+    wrap_references['peak_started_time'] = start_time
+    wrap_references['peak_ended_time'] = start_time + duration_count
+    if debug: print("    * Peak detected above the current TPS threshold - TPS: {}, Started at: {}, Ended at: {}".format(wrap_references['tps_threshold'], wrap_references['peak_started_time'], wrap_references['peak_ended_time']))     
+    return
+
 def _validate_log_format(log) -> bool:
     return all(key in log for key in ('started_at', 'ended_at', 'result'))
 
 def result_is_success(result) -> bool:
-    if (isinstance(result, requests.Response) and result.status_code != 200) or not result:
+    if not result or (isinstance(result, requests.Response) and result.status_code != 200):
         return False
     else:
         return True

@@ -254,11 +254,36 @@ result_callback_function (id: int, config, result, log: dict) -> Any
 
 - #### get_tps()
     Get TPS report in dict type after completing `start()` or by passing a list data.
-  ```python
-  def get_tps(logs: dict=None, debug: bool=False, display_intervals: bool = False, interval: float=0, reverse_interval: bool = False) -> dict:
-  ```
-  The log dict matches the format of the [get_logs()](#get_logs) and refers to it by default. 
-  Each task within a log will be validated for success according to the [callback_function()](#task.result_callback) result rule.
+    ```python
+    def get_tps(logs: dict=None, display_intervals: bool=False, interval: float=0, reverse_interval: bool=False, use_processing: bool=False, verbose: bool=False, debug: bool=False,) -> dict:
+    ```
+    The log dict matches the format of the [get_logs()](#get_logs) and refers to it by default. 
+    Each task within a log will be validated for success according to the [callback_function()](#task.result_callback) result rule.
+    
+    > Enabling `use_processing` can speed up the peak-finding process, particularly for large tasks with long durations.
+    
+    Example output with `debug` mode and `use_processing` enabled:
+    ```bash
+    --- Start calculating the TPS data ---
+      - Average TPS: 0.83, Total Duration: 1202.3867809772491s, Success Count: 999
+    --- Start to compile intervals with an interval of 13 seconds ---
+      - Interval - Start Time: 1734937209.851285, End Time: 1734937222.851285, TPS: 51.23
+        * Peak detected above the current TPS threshold - Interval TPS: 51.23, Main TPS: 0.83
+      - Interval - Start Time: 1734937222.851285, End Time: 1734937235.851285, TPS: 18.0
+      - Interval - Start Time: 1734937235.851285, End Time: 1734937248.851285, TPS: 0.0
+      ...
+      - Interval - Start Time: 1734938405.851285, End Time: 1734938412.238066, TPS: 0.0
+    --- Start to find the peak TPS ---
+      - Detecting from Start Time: 1734937210, Count: 67, Current TPS Threshold: 51.23, Worker: 104
+        * Peak detected above the current TPS threshold - TPS: 53.5, Started at: 1734937210, Ended at: 1734937220
+        * Peak detected above the current TPS threshold - TPS: 53.857142857142854, Started at: 1734937210, Ended at: 1734937224
+        * Peak detected above the current TPS threshold - TPS: 55.13333333333333, Started at: 1734937210, Ended at: 1734937225
+        * Peak detected above the current TPS threshold - TPS: 55.166666666666664, Started at: 1734937210, Ended at: 1734937228
+      - Detecting from Start Time: 1734937224, Count: 73, Current TPS Threshold: 55.166666666666664, Worker: 105
+      ...
+      - Detecting from Start Time: 1734937212, Count: 82, Current TPS Threshold: 55.166666666666664, Worker: 102
+        * Peak detected above the current TPS threshold - TPS: 55.53846153846154, Started at: 1734937212, Ended at: 1734937225
+    ```
 
 ### Scenarios
 
