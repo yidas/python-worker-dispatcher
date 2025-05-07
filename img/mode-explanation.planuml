@@ -18,7 +18,7 @@ package "Threads only - Default Setting" {
   d_tasks -down-> d_t_pool
   d_core -up- d_t1
   d_core -up- d_t2
-  note top of d_t_pool: max_workers is based on worker.number
+  note top of d_t_pool: The pool's max_workers is based on worker.number\n or capped by the max_workers configuration
 }
 
 package "Process only - use_processing" {
@@ -36,7 +36,7 @@ package "Process only - use_processing" {
   p_tasks -down-> p_p_pool
   p_core -up- p_p1
   p_core2 -up- p_p2
-  note top of p_p_pool: max_workers is based on worker.number
+  note top of p_p_pool: The pool's max_workers is based on worker.number\n or capped by the max_workers configuration
 }
 
 package "Parallel - parallel_processing" {
@@ -65,8 +65,10 @@ package "Parallel - parallel_processing" {
   pp_p2 -up- pp_t_pool2
   pp_core -up- pp_p1
   pp_core2 -up- pp_p2
-  note top of pp_t_pool2: max_workers is distributed evenly
-  note left of pp_p_pool: max_workers is based on CPU cores
+  note "Each thread pool’s max_workers is evenly divided\n from the worker.number or max_workers setting" as note_t_pool
+  pp_t_pool .. note_t_pool
+  pp_t_pool2 .. note_t_pool
+  note left of pp_p_pool: The process pool's max_workers\n is based on CPU cores
 }
 
 @enduml
