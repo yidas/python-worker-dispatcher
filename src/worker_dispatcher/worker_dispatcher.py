@@ -2,8 +2,8 @@ import multiprocessing, concurrent.futures
 import time, datetime, copy, requests, math, os, platform
 import queue as Queue
 
-# Sample callback function
-def callback_sample(id: int, config=None, task=None):
+# Sample task function
+def task_function_sample(id: int, config=None, task=None, log: dict=None):
     if id == 1:
         print("Runing sample task function, please customize yours according to the actual usage.")
     result = {
@@ -12,7 +12,7 @@ def callback_sample(id: int, config=None, task=None):
     return result
 
 # Sample result callback function
-def result_callback_sample(id: int, config=None, result=None, log: dict=None):
+def callback_sample(id: int, config=None, result=None, log: dict=None):
     if id == 1:
         print("Runing sample result function, please customize yours according to the actual usage.")
     return result
@@ -21,10 +21,13 @@ def result_callback_sample(id: int, config=None, result=None, log: dict=None):
 default_config = {
     'debug': False,
     'task': {
-        'list': [],                     # Support list and integer. Integer represent the number of tasks to be generated.
-        'callback': callback_sample,
+        'list': [],                         # Support list and integer. Integer represent the number of tasks to be generated.
+        'function': task_function_sample,   # The main function to execute per task
         'config': {},
-        'result_callback': False
+        'callback': {
+            'on_done': False,               # Called with each task's result after each task completes; the return value will overwrite and define the task result
+            'on_all_done': False,           # Called with each task's result after all tasks complete; the return value will overwrite and define the task result
+        }
     },
     'worker': {
         'number': multiprocessing.cpu_count(),
@@ -84,9 +87,9 @@ def start(user_config: dict) -> list:
         print("Configuration Dictionary:")
         print(config)
 
-    # Callback check
-    if not callable(config['task']['callback']):
-        exit("Callback function is invalied")
+    # Task function check
+    if not callable(config['task']['function']):
+        exit("Task function is invalied")
 
     # Task list to queue
     task_list = []
@@ -342,15 +345,15 @@ def start(user_config: dict) -> list:
                     chunk_log = chunk_result['log_list']
                 except Exception as e:
                     break
-                    exit(f"Fatal error occurred in task.callback function: {e}")
+                    exit(f"Fatal error occurred in task.function: {e}")
                 # print(chunk_log);exit
                 for log in chunk_log:
                     result = log['result']
-                    if callable(config['task']['result_callback']):
+                    if callable(config['task']['callback']['on_all_done']):
                         try:
-                            result = config['task']['result_callback'](config=config['task']['config'], id=log['task_id'], result=result, log=log)
+                            result = config['task']['callback']['on_all_done'](config=config['task']['config'], id=log['task_id'], result=result, log=log)
                         except Exception as e:
-                            exit(f"Fatal error occurred in task.result_callback function: {e}")
+                            exit(f"Fatal error occurred in task.callback.on_all_done function: {e}")
                     logs.append(log)
                     results.append(result)
                 
@@ -371,13 +374,13 @@ def start(user_config: dict) -> list:
                 try:
                     log = future.result()
                 except Exception as e:
-                    exit(f"Fatal error occurred in task.callback function: {e}")
+                    exit(f"Fatal error occurred in task.function: {e}")
                 result = log['result']
-                if callable(config['task']['result_callback']):
+                if callable(config['task']['callback']['on_all_done']):
                     try:
-                        result = config['task']['result_callback'](config=config['task']['config'], id=log['task_id'], result=result, log=log)
+                        result = config['task']['callback']['on_all_done'](config=config['task']['config'], id=log['task_id'], result=result, log=log)
                     except Exception as e:
-                        exit(f"Fatal error occurred in task.result_callback function: {e}")
+                        exit(f"Fatal error occurred in task.callback.on_all_done function: {e}")
                 logs.append(log)
                 results.append(result)
         # results = [result.result() for result in concurrent.futures.as_completed(pool_results)]
@@ -454,12 +457,12 @@ def _consume_tasks(task_list, config,
             try:
                 log = future.result()
             except Exception as e:
-                exit(f"Fatal error occurred in task.callback function: {e}")
-            if callable(config['task']['result_callback']):
+                exit(f"Fatal error occurred in task.function: {e}")
+            if callable(config['task']['callback']['on_all_done']):
                 try:
-                    log['result'] = config['task']['result_callback'](config=config['task']['config'], id=log['task_id'], result=log['result'], log=log)
+                    log['result'] = config['task']['callback']['on_all_done'](config=config['task']['config'], id=log['task_id'], result=log['result'], log=log)
                 except Exception as e:
-                    exit(f"Fatal error occurred in task.result_callback function: {e}")
+                    exit(f"Fatal error occurred in task.callback.on_all_done function: {e}")
             logs.append(log)
 
     undispatched_tasks_count = undispatched_tasks_count if undispatched_tasks_count else len(not_done)
@@ -493,14 +496,14 @@ def _parallel_consume_tasks(queue, config, runtime, worker_num, frequency_interv
             try:
                 log_batch = future.result()
             except Exception as e:
-                exit(f"Fatal error occurred in task.callback function in thread pool: {e}")
+                exit(f"Fatal error occurred in task.function in thread pool: {e}")
             # print(log)
             for log in log_batch:
-                if callable(config['task']['result_callback']):
+                if callable(config['task']['callback']['on_all_done']):
                     try:
-                        log['result'] = config['task']['result_callback'](config=config['task']['config'], id=log['task_id'], result=log['result'], log=log)
+                        log['result'] = config['task']['callback']['on_all_done'](config=config['task']['config'], id=log['task_id'], result=log['result'], log=log)
                     except Exception as e:
-                        exit(f"Fatal error occurred in task.result_callback function: {e}")
+                        exit(f"Fatal error occurred in task.callback.on_all_done function: {e}")
                 logs.append(log)
 
     undispatched_tasks_count = len(not_done)
@@ -534,7 +537,7 @@ def _consume_queue(queue, config, timeout_unixtime, frequency_interval_seconds) 
 def _consume_task(data, config) -> dict:
     started_at = time.time()
     task_rewrite_data = {}
-    return_value = config['task']['callback'](config=config['task']['config'], id=data['id'], task=data['task'], log=task_rewrite_data)
+    return_value = config['task']['function'](config=config['task']['config'], id=data['id'], task=data['task'], log=task_rewrite_data)
     ended_at = time.time()
     duration = ended_at - started_at
     log = {
@@ -545,6 +548,13 @@ def _consume_task(data, config) -> dict:
         'result': return_value,
         'log': task_rewrite_data,
     }
+    # On_done hook (will update the result in the log)
+    if callable(config['task']['callback']['on_done']):
+        try:
+            log['result'] = config['task']['callback']['on_done'](config=config['task']['config'], id=log['task_id'], result=log['result'], log=log)
+        except Exception as e:
+            exit(f"Fatal error occurred in task.callback.on_done function: {e}")
+
     return log
 
 def _merge_dicts_recursive(default_dict, user_dict):
