@@ -3,7 +3,7 @@ import time, datetime, copy, requests, math, os, platform
 import queue as Queue
 
 # Sample task function
-def task_function_sample(id: int, config=None, task=None, log: dict=None):
+def task_function_sample(id: int, config=None, task=None, metadata: dict=None):
     if id == 1:
         print("Runing sample task function, please customize yours according to the actual usage.")
     result = {
@@ -536,8 +536,8 @@ def _consume_queue(queue, config, timeout_unixtime, frequency_interval_seconds) 
 # Single Task function
 def _consume_task(data, config) -> dict:
     started_at = time.time()
-    task_rewrite_data = {}
-    return_value = config['task']['function'](config=config['task']['config'], id=data['id'], task=data['task'], log=task_rewrite_data)
+    customized_meta = {}
+    return_value = config['task']['function'](config=config['task']['config'], id=data['id'], task=data['task'], metadata=customized_meta)
     ended_at = time.time()
     duration = ended_at - started_at
     log = {
@@ -546,7 +546,7 @@ def _consume_task(data, config) -> dict:
         'ended_at': ended_at,
         'duration': duration,
         'result': return_value,
-        'log': task_rewrite_data,
+        'metadata': customized_meta,
     }
     # On_done hook (will update the result in the log)
     if callable(config['task']['callback']['on_done']):
