@@ -39,8 +39,10 @@ OUTLINE
         - [get_logs()](#get_logs)
         - [get_result_info()](#get_result_info)
         - [get_tps()](#get_tps)
+        - [print()](#printobjects-sep--endn-filenone-flushtrue)
     - [Scenarios](#scenarios)
         - [Stress Test](#stress-test)
+        - [Background Execution](#background-execution)
 - [Appendix](#appendix)
     - [Mode Explanation](#mode-explanation) 
 
@@ -307,6 +309,9 @@ callback_on_all_done_function (id: int, config, result, log: dict) -> Any
         * Peak detected above the current TPS threshold - TPS: 55.53846153846154, Started at: 1734937212, Ended at: 1734937225
     ```
 
+- #### print(*objects, sep=' ', end='\n', file=None, flush=True)
+    A custom print function that sets `flush=True` by default to ensure immediate output to stdout, useful when redirecting output to a file.
+  
 ### Scenarios
 
 #### Stress Test
@@ -347,6 +352,37 @@ print(worker_dispatcher.get_tps())
 ```
 
 > The stress tool, based on this dispatcher, along with statistical TPS reports, is as follows: [yidas / python-stress-tool](https://github.com/yidas/python-stress-tool)
+
+
+#### Background Execution
+
+You can run the script as a background process by adding & at the end of the command, and redirect the output to a file:
+
+```
+$ python3 main.py > log.txt 2>&1 &
+```
+
+> `2>&1` means redirecting stderr (2) to the same location as stdout (1), so both standard output and error messages go to the same file.
+
+For immediate stdout output (e.g., when logging to a file), use `worker_dispatcher.print()`, which enables flushing by default. Alternatively, use the built-in `print(..., flush=True)`.
+
+```python
+import worker_dispatcher
+
+def each_task(id, config, task, metadata):
+    # Print immediately to file (stdout is flushed)
+    if id % 10 == 0:
+        worker_dispatcher.print(f"TaskId: {id}")
+    return True
+
+responses = worker_dispatcher.start({
+    'task': {
+        'list': 600,
+        'function': each_task,
+        ...
+})
+```
+
 
 ---
 

@@ -1,5 +1,5 @@
 import multiprocessing, concurrent.futures
-import time, datetime, copy, requests, math, os, platform
+import time, datetime, copy, requests, math, os, platform, builtins
 import queue as Queue
 
 # Sample task function
@@ -871,6 +871,11 @@ def _search_peak_by_start_time_write(wrap_references, current_tps, start_time, d
 
 def _validate_log_format(log) -> bool:
     return all(key in log for key in ('started_at', 'ended_at', 'result'))
+
+# A custom print function that sets `flush=True`` by default to ensure immediate output to stdout, useful when redirecting output to a file.
+def print(*args, **kwargs):
+    kwargs.setdefault("flush", True)
+    builtins.print(*args, **kwargs)
 
 def result_is_success(result) -> bool:
     if not result or (isinstance(result, requests.Response) and result.status_code != 200):
