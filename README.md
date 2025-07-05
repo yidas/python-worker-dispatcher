@@ -6,7 +6,7 @@
     <br>
 </p>
 
-A flexible task dispatcher for Python with multiple threading or processing control
+A lightweight Python concurrency framework to orchestrate multi-threaded and multi-processed tasks with a unified API.
 
 [![PyPI](https://img.shields.io/pypi/v/worker-dispatcher)](https://pypi.org/project/worker-dispatcher/)
 ![](https://img.shields.io/pypi/implementation/worker-dispatcher)
@@ -15,11 +15,13 @@ A flexible task dispatcher for Python with multiple threading or processing cont
 Features
 --------
 
-- ***Tasks Dispatching** to managed workers*
+- *Orchestrated Concurrency Management*
 
-- ***Elegant Interface** for setup and use*
+- *Easy to Code and Perform*
 
-- ***Various modes** to choose from*  
+- *Adaptive Execution Modes*
+
+- *Real-time **TPS Metrics***
 
 ---
 
@@ -61,10 +63,12 @@ Worker Dispatcher Configutation:
 - Tasks Count: 100
 - Runtime: Unlimited
 - Dispatch Mode: Fixed Workers (Default)
-- Workers Info:
-  └ Worker Type: Processing
-  └ Number of Workers : 10
-  └ Max Worker: 10
+- Concurrency Info:
+  ├─ Execution Type: Processing
+  ├─ Configured Workers: 10 Worker(s)
+  ├─ Pool Structure:
+  │  └─ Main Pool : 10 Process(es)
+  └─ Total Concurrency: 10 Active Worker(s)
 
 --- Start to dispatch workers at 2024-06-14T17:46:30.996685+08:00 ---
 
@@ -171,7 +175,7 @@ results = worker_dispatcher.start({
         'frequency_mode': {             # Changing from assigning tasks to a fixed number of workers once, to assigning tasks and workers frequently.
             'enabled': False, 
             'interval': 1,              # The second(s) of interval
-            'accumulated_workers': 0,   # Accumulate the number of workers for each interval for next dispatch.
+            'accumulated_workers': 0,   # Accumulate the number of workers for each interval for next dispatch. Can be set as a negative number.
             'max_workers': None,        # limit the maximum number of workers to prevent system exhaustion.
         },
         'use_processing': False,        # To break GIL, workers will be based on processing pool.
@@ -260,12 +264,14 @@ callback_on_all_done_function (id: int, config, result, log: dict) -> Any
 ### Other Methods
 
 - #### get_results()
-    Get all results in list type after completing `start()`
+    Retrieves a list of all task return values after `start()` has completed.
+
+    Returns an array/list containing only the custom return values from each executed task function.
 
 - #### get_logs()
-    Get all logs in list type after completing `start()`
+    Returns a list of all task logs after `start()` has completed.
 
-    Each log is of type dict, containing the results of every task processed by the worker:
+    Each log is a dictionary representing a single task's result:
     - task_id *(Auto-increased number)*
     - started_at *(Unixtime)*
     - ended_at *(Unixtime)*
@@ -274,17 +280,22 @@ callback_on_all_done_function (id: int, config, result, log: dict) -> Any
     - metadata *(can be set within each task function)*
 
 - #### get_result_info()
-    Get a dict with the whole spending time and started/ended timestamps after completing `start()`
+    Retrieves a dictionary containing the execution metrics of the dispatcher itself after `start()` has completed. 
+
+    *(Note: These timestamps represent the dispatcher's lifecycles, not the min/max timestamps aggregated from all individual tasks.)*
+  
+    ```python
+    {'started_at': 1782288809.0990121, 'ended_at': 1782288813.567204, 'duration': 4.468191862106323}
+    ```
 
 - #### get_tps()
-    Get TPS report in dict type after completing `start()` or by passing a list data.
+    Generates a TPS (Transactions Per Second) report as a dictionary based on task logs, either after start() has completed or by providing a custom log list.
     ```python
     def get_tps(logs: dict=None, display_intervals: bool=False, interval: float=0, reverse_interval: bool=False, use_processing: bool=False, verbose: bool=False, debug: bool=False,) -> dict:
     ```
-    The log dict matches the format of the [get_logs()](#get_logs) and refers to it by default. 
-    Each task within a log will be validated for success according to the [callback_function()](#task.result_callback) result rule.
-    
-    > Enabling `use_processing` can speed up the peak-finding process, particularly for large tasks with long durations.
+    The `logs` argument must match the structure returned by [get_logs()](#get_logs) and defaults to the internal logs if not provided. Each task entry within the log is evaluated for success based on the [callback_function()](#task.result_callback) rule.
+
+    > **Performance Tip:** Enabling `use_processing` utilizes multiprocessing to significantly accelerate the peak-TPS calculation, especially when dealing with large volumes of logs or long-duration tasks.
     
     Example output with `debug` mode and `use_processing` enabled:
     ```bash
@@ -400,7 +411,61 @@ The suitable application scenarios are as follows:
 - **use_processing**:  
   Intended for CPU-intensive tasks. Using too many workers (processes) may slow down initialization and increase memory usage accordingly.
 - **parallel_processing**:  
-  Optimized for tasks that fully utilize the CPU with many workers in `frequency_mode`, maintaining both performance and resources.
+  Optimized for tasks that fully utilize the CPU with many workers especially in `frequency_mode`, maintaining both performance and resources.
+  - Scenario: For a stress test requiring 100 concurrent requests, the first 100 requests are required to start simultaneously.
+      ```bash
+        Worker Dispatcher Configuration:
+        - Local CPU core: 10
+        - Tasks Count: 100
+        - Runtime: 1200.0 sec
+        - Dispatch Mode: Fixed Workers (Default)
+        - Concurrency Info:
+          ├─ Execution Type: Parallel Processing
+          ├─ Task Queue: Off
+          ├─ Configured Workers: 100 Worker(s)
+          ├─ Pool Structure:
+          │  └─ Main Pool : 10 Process(es)
+          │     └─ Sub Pool : 10 Thread(s)
+          └─ Total Concurrency: 100 (10p x 10t) Active Worker(s)
+      ```
+  - Scenario: For a stress test starting with 10 concurrent requests, add 10 new requests every second regardless of whether previous requests have completed.
+      ```bash
+        Worker Dispatcher Configuration:
+        - Local CPU core: 10
+        - Tasks Count: 100
+        - Runtime: 1200.0 sec
+        - Dispatch Mode: Frequency Mode
+          ├─ Interval Seconds: 1.0
+          ├─ Accumulated Workers: 0
+          └─ Estimated Max Concurrency: 100 (Worst-Case Bound)
+        - Concurrency Info:
+          ├─ Execution Type: Parallel Processing
+          ├─ Task Queue: Off
+          ├─ Configured Workers: 10 Worker(s)
+          ├─ Pool Structure:
+          │  └─ Main Pool : 10 Process(es)
+          │     └─ Sub Pool : 10 Thread(s)
+          └─ Total Concurrency: 100 (10p x 10t) Active Worker(s)
+      ```
+  - Scenario: For a stress test starting with 10 concurrent requests, increase the request count by 10 every second, cumulatively, regardless of whether previous requests have completed.
+      ```bash
+        Worker Dispatcher Configuration:
+        - Local CPU core: 10
+        - Tasks Count: 100000
+        - Runtime: 1200.0 sec
+        - Dispatch Mode: Frequency Mode
+          ├─ Interval Seconds: 1.0
+          ├─ Accumulated Workers: 10
+          └─ Estimated Max Concurrency: 32760 (Worst-Case Bound)
+        - Concurrency Info:
+          ├─ Execution Type: Parallel Processing
+          ├─ Task Queue: Off
+          ├─ Configured Workers: 10 Worker(s)
+          ├─ Pool Structure:
+          │  └─ Main Pool : 10 Process(es)
+          │     └─ Sub Pool : 3276 Thread(s)
+          └─ Total Concurrency: 32760 (10p x 3276t) Active Worker(s)
+      ```
 
 
 
