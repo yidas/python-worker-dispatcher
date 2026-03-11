@@ -6,7 +6,7 @@
     <br>
 </p>
 
-A flexible task dispatcher for Python with multiple threading or processing control
+A lightweight Python concurrency framework to orchestrate multi-threaded and multi-processed tasks with a unified API.
 
 [![PyPI](https://img.shields.io/pypi/v/worker-dispatcher)](https://pypi.org/project/worker-dispatcher/)
 ![](https://img.shields.io/pypi/implementation/worker-dispatcher)
@@ -15,11 +15,13 @@ A flexible task dispatcher for Python with multiple threading or processing cont
 Features
 --------
 
-- ***Tasks Dispatching** to managed workers*
+- *Orchestrated Concurrency Management*
 
-- ***Elegant Interface** for setup and use*
+- *Easy to Code and Perform*
 
-- ***Various modes** to choose from*  
+- *Adaptive Execution Modes*
+
+- *Real-time **TPS Metrics***
 
 ---
 
