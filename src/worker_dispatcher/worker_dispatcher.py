@@ -119,7 +119,12 @@ def start(user_config: dict) -> list:
     frequency_max_workers = config['worker']['frequency_mode']['max_workers']
     frequency_max_workers = frequency_max_workers if frequency_interval_seconds and isinstance(frequency_max_workers, int) else 0
     accumulated_workers = math.floor(config['worker']['frequency_mode']['accumulated_workers']) if config['worker']['frequency_mode']['accumulated_workers'] else 0
-    max_workers = min(frequency_max_workers if frequency_max_workers else len(task_list) if frequency_interval_seconds else worker_num, 32766)
+    max_workers = min(
+        frequency_max_workers if frequency_max_workers else (
+            worker_num + ((len(task_list) // worker_num) * accumulated_workers)  # Estimate safe maximum concurrency
+            if frequency_interval_seconds else worker_num
+        ), 32766
+    )
     local_cpu_count = multiprocessing.cpu_count()
     pool_max_worker = max_workers
     if parallel_processing:
@@ -180,21 +185,27 @@ def start(user_config: dict) -> list:
 
     runtime = float(config['runtime']) if config['runtime'] else None
     if config['verbose']:
-        print("\nWorker Dispatcher Configutation:")
+        print("\nWorker Dispatcher Configuration:")
         print("- Local CPU core: {}".format(local_cpu_count))
         print("- Tasks Count: {}".format(len(task_list)))
         print("- Runtime: {}".format("{} sec".format(runtime) if runtime else "Unlimited"))
         print("- Dispatch Mode: {}".format("Frequency Mode" if frequency_interval_seconds else "Fixed Workers (Default)"))
         if frequency_interval_seconds:
-            print("  └ Interval Seconds: {}".format(frequency_interval_seconds))
-            print("  └ Accumulated Workers: {}{}".format(accumulated_workers, " (Adjusted from {})".format(accumulated_workers + pp_adjusted_accumulated_worker_num) if parallel_processing and pp_adjusted_accumulated_worker_num else ""))
-        print("- Workers Info:")
-        print("  └ Worker Type:", "Parallel Processing with {} process(es)".format(pool_max_worker) if parallel_processing else "Processing" if use_processing else "Threading")
+            print("  ├─ Interval Seconds: {}".format(frequency_interval_seconds))
+            print("  ├─ Accumulated Workers: {}{}".format(accumulated_workers, " (Adjusted from {})".format(accumulated_workers + pp_adjusted_accumulated_worker_num) if parallel_processing and pp_adjusted_accumulated_worker_num else ""))
+            print("  └─ Estimated Max Concurrency: {} ".format(max_workers))
+        print("- Concurrency Info:")
+        print("  ├─ Execution Type:", "Parallel Processing" if parallel_processing else "Processing" if use_processing else "Threading")
         if parallel_processing:
-            print("  └ Task Queue: {}".format("On" if pp_use_queue else "Off"))
-        print("  └ Number of Workers : {}{}".format(worker_num, " (Adjusted from {})".format(worker_num + pp_adjusted_worker_num) if parallel_processing and pp_adjusted_worker_num else ""))
-        output_parellel_max_worker_info = "{} ({}p x {}t{})".format(max_workers, pp_workers_count, pp_thread_max_workers, " + {}p x {}t".format(pp_remaining_workers_count, pp_remaining_thread_max_workers) if pp_remaining_workers_count else "") if parallel_processing else None
-        print("  └ Max Worker: {}".format(output_parellel_max_worker_info if output_parellel_max_worker_info else max_workers))
+            print("  ├─ Task Queue: {}".format("On" if pp_use_queue else "Off"))
+        print("  ├─ Configured Workers: {} Worker(s)".format(config['worker']['number']))
+        print("  ├─ Pool Structure:")
+        print("  │  └─ Main Pool : {} {}{}".format(pool_max_worker, "Process(es)" if parallel_processing or use_processing else "Thread(s)", " (Adjusted from {})".format(worker_num + pp_adjusted_worker_num) if parallel_processing and pp_adjusted_worker_num else ""))
+        if parallel_processing:
+            print(f"  │     └─ Sub Pool : {pp_thread_max_workers} Thread(s)")
+        # print("    └ Number of Workers : {}{}".format(pool_max_worker, " (Adjusted from {})".format(worker_num + pp_adjusted_worker_num) if parallel_processing and pp_adjusted_worker_num else ""))
+        output_parellel_max_worker_info = "{} ({}p x {}t{})".format(pool_max_worker * pp_thread_max_workers, pp_workers_count, pp_thread_max_workers, " + {}p x {}t".format(pp_remaining_workers_count, pp_remaining_thread_max_workers) if pp_remaining_workers_count else "") if parallel_processing else None
+        print("  └─ Total Concurrency: {} Active Worker(s)".format(output_parellel_max_worker_info if output_parellel_max_worker_info else max_workers))
     pool_executor_class = concurrent.futures.ProcessPoolExecutor if use_processing or parallel_processing else concurrent.futures.ThreadPoolExecutor
     result_info['started_at'] = time.time()
     datetime_timezone_obj = datetime.timezone(datetime.timedelta(hours=time.localtime().tm_gmtoff / 3600))
@@ -202,6 +213,14 @@ def start(user_config: dict) -> list:
 
     # Pool Executor
     with pool_executor_class(max_workers=pool_max_worker) as executor:
+
+        # Warm up all processes or threads
+        if False:
+            if config['verbose']: print("\n--- Start to warm up workers at {} ---\n".format(datetime.datetime.fromtimestamp(time.time(), datetime_timezone_obj).isoformat()))
+            warm_up_futures = [executor.submit(lambda: time.sleep(1) or True) for _ in range(pool_max_worker)]
+            concurrent.futures.wait(warm_up_futures, return_when=concurrent.futures.ALL_COMPLETED)
+            if config['verbose']: print("\n--- Finished warm-up workers at {} ---\n".format(datetime.datetime.fromtimestamp(time.time(), datetime_timezone_obj).isoformat()))
+        
         undispatched_tasks_count = 0
         pool_results = []
         per_second_remaining_quota = worker_num
