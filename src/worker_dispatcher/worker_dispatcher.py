@@ -627,7 +627,7 @@ def get_tps(
         interval = (
             interval
             if interval
-            else round(exec_time_avg * 3, 2)
+            else max(1, round(exec_time_avg * 3, 2))
             if (total_duration / (exec_time_avg * 3)) <= ideal_max_row_num
             else math.ceil(total_duration / ideal_max_row_num)
             if (total_duration / ideal_max_row_num) >= 1
