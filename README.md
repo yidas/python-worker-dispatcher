@@ -63,10 +63,12 @@ Worker Dispatcher Configutation:
 - Tasks Count: 100
 - Runtime: Unlimited
 - Dispatch Mode: Fixed Workers (Default)
-- Workers Info:
-  └ Worker Type: Processing
-  └ Number of Workers : 10
-  └ Max Worker: 10
+- Concurrency Info:
+  ├─ Execution Type: Processing
+  ├─ Configured Workers: 10 Worker(s)
+  ├─ Pool Structure:
+  │  └─ Main Pool : 10 Process(es)
+  └─ Total Concurrency: 10 Active Worker(s)
 
 --- Start to dispatch workers at 2024-06-14T17:46:30.996685+08:00 ---
 
@@ -410,7 +412,60 @@ The suitable application scenarios are as follows:
   Intended for CPU-intensive tasks. Using too many workers (processes) may slow down initialization and increase memory usage accordingly.
 - **parallel_processing**:  
   Optimized for tasks that fully utilize the CPU with many workers especially in `frequency_mode`, maintaining both performance and resources.
-  Scenario: Stress test with 100 concurrencies requirement, the first 100 requests would be better to start together
+  - Scenario: For a stress test requiring 100 concurrent requests, the first 100 requests are required to start simultaneously.
+      ```bash
+        Worker Dispatcher Configuration:
+        - Local CPU core: 10
+        - Tasks Count: 100
+        - Runtime: 1200.0 sec
+        - Dispatch Mode: Fixed Workers (Default)
+        - Concurrency Info:
+          ├─ Execution Type: Parallel Processing
+          ├─ Task Queue: Off
+          ├─ Configured Workers: 100 Worker(s)
+          ├─ Pool Structure:
+          │  └─ Main Pool : 10 Process(es)
+          │     └─ Sub Pool : 10 Thread(s)
+          └─ Total Concurrency: 100 (10p x 10t) Active Worker(s)
+      ```
+  - Scenario: For a stress test starting with 10 concurrent requests, add 10 new requests every second regardless of whether previous requests have completed.
+      ```bash
+        Worker Dispatcher Configuration:
+        - Local CPU core: 10
+        - Tasks Count: 100
+        - Runtime: 1200.0 sec
+        - Dispatch Mode: Frequency Mode
+          ├─ Interval Seconds: 1.0
+          ├─ Accumulated Workers: 0
+          └─ Estimated Max Concurrency: 100 (Worst-Case Bound)
+        - Concurrency Info:
+          ├─ Execution Type: Parallel Processing
+          ├─ Task Queue: Off
+          ├─ Configured Workers: 10 Worker(s)
+          ├─ Pool Structure:
+          │  └─ Main Pool : 10 Process(es)
+          │     └─ Sub Pool : 10 Thread(s)
+          └─ Total Concurrency: 100 (10p x 10t) Active Worker(s)
+      ```
+  - Scenario: For a stress test starting with 10 concurrent requests, increase the request count by 10 every second, cumulatively, regardless of whether previous requests have completed.
+      ```bash
+        Worker Dispatcher Configuration:
+        - Local CPU core: 10
+        - Tasks Count: 100000
+        - Runtime: 1200.0 sec
+        - Dispatch Mode: Frequency Mode
+          ├─ Interval Seconds: 1.0
+          ├─ Accumulated Workers: 10
+          └─ Estimated Max Concurrency: 32760 (Worst-Case Bound)
+        - Concurrency Info:
+          ├─ Execution Type: Parallel Processing
+          ├─ Task Queue: Off
+          ├─ Configured Workers: 10 Worker(s)
+          ├─ Pool Structure:
+          │  └─ Main Pool : 10 Process(es)
+          │     └─ Sub Pool : 3276 Thread(s)
+          └─ Total Concurrency: 32760 (10p x 3276t) Active Worker(s)
+      ```
 
 
 
