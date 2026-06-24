@@ -173,7 +173,7 @@ results = worker_dispatcher.start({
         'frequency_mode': {             # Changing from assigning tasks to a fixed number of workers once, to assigning tasks and workers frequently.
             'enabled': False, 
             'interval': 1,              # The second(s) of interval
-            'accumulated_workers': 0,   # Accumulate the number of workers for each interval for next dispatch.
+            'accumulated_workers': 0,   # Accumulate the number of workers for each interval for next dispatch. Can be set as a negative number.
             'max_workers': None,        # limit the maximum number of workers to prevent system exhaustion.
         },
         'use_processing': False,        # To break GIL, workers will be based on processing pool.
@@ -409,7 +409,8 @@ The suitable application scenarios are as follows:
 - **use_processing**:  
   Intended for CPU-intensive tasks. Using too many workers (processes) may slow down initialization and increase memory usage accordingly.
 - **parallel_processing**:  
-  Optimized for tasks that fully utilize the CPU with many workers in `frequency_mode`, maintaining both performance and resources.
+  Optimized for tasks that fully utilize the CPU with many workers especially in `frequency_mode`, maintaining both performance and resources.
+  Scenario: Stress test with 100 concurrencies requirement, the first 100 requests would be better to start together
 
 
 
