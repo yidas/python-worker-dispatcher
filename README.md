@@ -287,11 +287,11 @@ callback_on_all_done_function (id: int, config, result, log: dict) -> Any
     ```
 
 - #### get_tps()
-    Generates a TPS (Transactions Per Second) report as a dictionary, either after `start()` has completed or by giving a custom log list.
+    Generates a TPS (Transactions Per Second) report as a dictionary based on task logs, either after start() has completed or by providing a custom log list.
     ```python
     def get_tps(logs: dict=None, display_intervals: bool=False, interval: float=0, reverse_interval: bool=False, use_processing: bool=False, verbose: bool=False, debug: bool=False,) -> dict:
     ```
-    The `logs` dictionary must match the structure returned by [get_logs()](#get_logs) and defaults to the internal logs if not provided. Each task entry within the log is evaluated for success based on the [callback_function()](#task.result_callback) rule.
+    The `logs` argument must match the structure returned by [get_logs()](#get_logs) and defaults to the internal logs if not provided. Each task entry within the log is evaluated for success based on the [callback_function()](#task.result_callback) rule.
 
     > **Performance Tip:** Enabling `use_processing` utilizes multiprocessing to significantly accelerate the peak-TPS calculation, especially when dealing with large volumes of logs or long-duration tasks.
     
