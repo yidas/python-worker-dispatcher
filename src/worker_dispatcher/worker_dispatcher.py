@@ -121,7 +121,8 @@ def start(user_config: dict) -> list:
     accumulated_workers = math.floor(config['worker']['frequency_mode']['accumulated_workers']) if config['worker']['frequency_mode']['accumulated_workers'] else 0
     max_workers = min(
         frequency_max_workers if frequency_max_workers else (
-            worker_num + ((len(task_list) // worker_num) * accumulated_workers)  # Estimate safe maximum concurrency
+            # Estimate safe maximum concurrency 
+            _estimate_max_concurrency(len(task_list), worker_num, accumulated_workers)
             if frequency_interval_seconds else worker_num
         ), 32766
     )
@@ -138,18 +139,20 @@ def start(user_config: dict) -> list:
         if not pp_use_queue:
             pp_thread_workers = 1
             pp_thread_accumulated_workers = 0
+            # Adjust the number of accumulated workers for each process call
+            if accumulated_workers:
+                pp_adjusted_accumulated_worker_num = accumulated_workers % pool_max_worker
+                if pp_adjusted_accumulated_worker_num != 0:
+                    accumulated_workers -= pp_adjusted_accumulated_worker_num
+                    # Re-estimate safe maximum concurrency
+                    max_workers = _estimate_max_concurrency(len(task_list), worker_num, accumulated_workers)
+                pp_thread_accumulated_workers = int(accumulated_workers / pool_max_worker)
             # Adjust the number of workers for each process call
             if worker_num >= pool_max_worker:
                 pp_adjusted_worker_num = worker_num % pool_max_worker
                 if pp_adjusted_worker_num != 0:
                     worker_num -= pp_adjusted_worker_num
                 pp_thread_max_workers = pp_thread_workers = int(worker_num / pool_max_worker)
-            # Adjust the number of accumulated workers for each process call
-            if accumulated_workers:
-                pp_adjusted_accumulated_worker_num = accumulated_workers % pool_max_worker
-                if pp_adjusted_accumulated_worker_num != 0:
-                    accumulated_workers -= pp_adjusted_accumulated_worker_num
-                pp_thread_accumulated_workers = int(accumulated_workers / pool_max_worker)
         elif pp_use_queue: 
             # Queue connection protection for non-Linux OS.
             max_workers = min(128, max_workers) if os.name != 'posix' or platform.system() != 'Linux' else max_workers
@@ -193,7 +196,7 @@ def start(user_config: dict) -> list:
         if frequency_interval_seconds:
             print("  ├─ Interval Seconds: {}".format(frequency_interval_seconds))
             print("  ├─ Accumulated Workers: {}{}".format(accumulated_workers, " (Adjusted from {})".format(accumulated_workers + pp_adjusted_accumulated_worker_num) if parallel_processing and pp_adjusted_accumulated_worker_num else ""))
-            print("  └─ Estimated Max Concurrency: {} ".format(max_workers))
+            print("  └─ Estimated Max Concurrency: {} (Worst-Case Bound)".format(max_workers))
         print("- Concurrency Info:")
         print("  ├─ Execution Type:", "Parallel Processing" if parallel_processing else "Processing" if use_processing else "Threading")
         if parallel_processing:
@@ -891,6 +894,19 @@ def _search_peak_by_start_time_write(wrap_references, current_tps, start_time, d
 def _validate_log_format(log) -> bool:
     return all(key in log for key in ('started_at', 'ended_at', 'result'))
 
+def _estimate_max_concurrency(
+    task_count: int, 
+    worker_num: int, 
+    accumulated_workers: int
+) -> int:
+    # return 0 if task_count <= 0 else (
+    #     worker_num if accumulated_workers <= 0 else
+    #     worker_num + max(0, math.ceil((-(2 * worker_num - accumulated_workers) + math.sqrt((2 * worker_num - accumulated_workers)**2 + 8 * accumulated_workers * task_count)) / (2 * accumulated_workers)) - 1) * accumulated_workers
+    # )
+
+    # Set task count as safe concurrency bound due to unpredictable task duration.
+    return task_count
+    
 # A custom print function that sets `flush=True`` by default to ensure immediate output to stdout, useful when redirecting output to a file.
 def print(*args, **kwargs):
     kwargs.setdefault("flush", True)
