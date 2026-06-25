@@ -26,7 +26,6 @@ default_config = {
         'config': {},
         'callback': {
             'on_done': False,               # Called with each task's result after each task completes; the return value will overwrite and define the task result
-            'on_all_done': False,           # Called with each task's result after all tasks complete; the return value will overwrite and define the task result
         }
     },
     'worker': {
@@ -63,13 +62,6 @@ def start(user_config: dict) -> list:
     # Merge config with 2 level
     last_config = _merge_dicts_recursive(default_config, user_config)
     config = last_config
-    # config = copy.deepcopy(default_config)
-    # for level1_key in config.keys():
-    #     if level1_key in user_config:
-    #         if isinstance(config[level1_key], dict):
-    #             config[level1_key].update(user_config[level1_key])
-    #         else:
-    #             config[level1_key] = user_config[level1_key]
 
     # Multi-processing handler
     use_processing = config['worker']['use_processing']
@@ -201,7 +193,9 @@ def start(user_config: dict) -> list:
         if frequency_interval_seconds:
             print("  ├─ Interval Seconds: {}".format(frequency_interval_seconds))
             print("  ├─ Accumulated Workers: {}{}".format(accumulated_workers, " (Adjusted from {})".format(accumulated_workers + pp_adjusted_accumulated_worker_num) if parallel_processing and pp_adjusted_accumulated_worker_num else ""))
-            print("  └─ Estimated Max Concurrency: {} (Worst-Case Bound)".format(max_workers))
+            print("  └─ Max Concurrency:")
+            print("     ├─ Configured Max Workers: {}".format(frequency_max_workers if frequency_max_workers else "None"))
+            print("     └─ Estimated Peak: {}".format(max_workers))
         print("- Concurrency Info:")
         print("  ├─ Execution Type:", "Parallel Processing" if parallel_processing else "Processing" if use_processing else "Threading")
         if parallel_processing:
@@ -376,11 +370,6 @@ def start(user_config: dict) -> list:
                 # print(chunk_log);exit
                 for log in chunk_log:
                     result = log['result']
-                    if callable(config['task']['callback']['on_all_done']):
-                        try:
-                            result = config['task']['callback']['on_all_done'](config=config['task']['config'], id=log['task_id'], result=result, log=log)
-                        except Exception as e:
-                            exit(f"Fatal error occurred in task.callback.on_all_done function: {e}")
                     logs.append(log)
                     results.append(result)
                 
@@ -403,11 +392,6 @@ def start(user_config: dict) -> list:
                 except Exception as e:
                     exit(f"Fatal error occurred in task.function: {e}")
                 result = log['result']
-                if callable(config['task']['callback']['on_all_done']):
-                    try:
-                        result = config['task']['callback']['on_all_done'](config=config['task']['config'], id=log['task_id'], result=result, log=log)
-                    except Exception as e:
-                        exit(f"Fatal error occurred in task.callback.on_all_done function: {e}")
                 logs.append(log)
                 results.append(result)
         # results = [result.result() for result in concurrent.futures.as_completed(pool_results)]
@@ -485,11 +469,6 @@ def _consume_tasks(task_list, config,
                 log = future.result()
             except Exception as e:
                 exit(f"Fatal error occurred in task.function: {e}")
-            if callable(config['task']['callback']['on_all_done']):
-                try:
-                    log['result'] = config['task']['callback']['on_all_done'](config=config['task']['config'], id=log['task_id'], result=log['result'], log=log)
-                except Exception as e:
-                    exit(f"Fatal error occurred in task.callback.on_all_done function: {e}")
             logs.append(log)
 
     undispatched_tasks_count = undispatched_tasks_count if undispatched_tasks_count else len(not_done)
@@ -526,11 +505,6 @@ def _parallel_consume_tasks(queue, config, runtime, worker_num, frequency_interv
                 exit(f"Fatal error occurred in task.function in thread pool: {e}")
             # print(log)
             for log in log_batch:
-                if callable(config['task']['callback']['on_all_done']):
-                    try:
-                        log['result'] = config['task']['callback']['on_all_done'](config=config['task']['config'], id=log['task_id'], result=log['result'], log=log)
-                    except Exception as e:
-                        exit(f"Fatal error occurred in task.callback.on_all_done function: {e}")
                 logs.append(log)
 
     undispatched_tasks_count = len(not_done)
