@@ -114,20 +114,27 @@ def start(user_config: dict) -> list:
 
     # Worker dispatch
     worker_num = config['worker']['number']
-    worker_num = int(worker_num) if isinstance(worker_num, int) else 1
-    frequency_interval_seconds = float(config['worker']['frequency_mode']['interval']) if config['worker']['frequency_mode']['enabled'] else 0
-    frequency_max_workers = config['worker']['frequency_mode']['max_workers']
-    frequency_max_workers = frequency_max_workers if frequency_interval_seconds and isinstance(frequency_max_workers, int) else 0
-    accumulated_workers = math.floor(config['worker']['frequency_mode']['accumulated_workers']) if config['worker']['frequency_mode']['accumulated_workers'] else 0
-    max_workers = min(
-        frequency_max_workers if frequency_max_workers else (
-            # Estimate safe maximum concurrency 
-            _estimate_max_concurrency(len(task_list), worker_num, accumulated_workers)
-            if frequency_interval_seconds else worker_num
-        ), 32766
-    )
+    worker_num = worker_num if isinstance(worker_num, int) else 1
+    # Pre-define the worker variables
+    pool_max_worker = max_workers = worker_num
     local_cpu_count = multiprocessing.cpu_count()
-    pool_max_worker = max_workers
+    # The Frequency Interval Seconds serves as the enabling condition for Frequency mode.
+    frequency_interval_seconds = (
+        float(config['worker']['frequency_mode']['interval']) 
+        if config['worker']['frequency_mode']['enabled'] 
+        else 0
+    )
+    # Re-calculate the worker variables under Frequency mode 
+    if frequency_interval_seconds:
+        frequency_max_workers = config['worker']['frequency_mode']['max_workers']
+        frequency_max_workers = frequency_max_workers if frequency_interval_seconds and isinstance(frequency_max_workers, int) else 0
+        # # Use task count as the default concurrency ceiling if frequency_max_workers is not set
+        pool_max_worker = max_workers = min(
+            frequency_max_workers if frequency_max_workers else len(task_list), 32766
+        )
+    accumulated_workers = math.floor(config['worker']['frequency_mode']['accumulated_workers']) if config['worker']['frequency_mode']['accumulated_workers'] else 0
+    # Define the maximum concurrency
+
     if parallel_processing:
         pool_max_worker = worker_num if worker_num < local_cpu_count else local_cpu_count
         pp_adjusted_worker_num = 0
@@ -144,8 +151,6 @@ def start(user_config: dict) -> list:
                 pp_adjusted_accumulated_worker_num = accumulated_workers % pool_max_worker
                 if pp_adjusted_accumulated_worker_num != 0:
                     accumulated_workers -= pp_adjusted_accumulated_worker_num
-                    # Re-estimate safe maximum concurrency
-                    max_workers = _estimate_max_concurrency(len(task_list), worker_num, accumulated_workers)
                 pp_thread_accumulated_workers = int(accumulated_workers / pool_max_worker)
             # Adjust the number of workers for each process call
             if worker_num >= pool_max_worker:
@@ -893,19 +898,6 @@ def _search_peak_by_start_time_write(wrap_references, current_tps, start_time, d
 
 def _validate_log_format(log) -> bool:
     return all(key in log for key in ('started_at', 'ended_at', 'result'))
-
-def _estimate_max_concurrency(
-    task_count: int, 
-    worker_num: int, 
-    accumulated_workers: int
-) -> int:
-    # return 0 if task_count <= 0 else (
-    #     worker_num if accumulated_workers <= 0 else
-    #     worker_num + max(0, math.ceil((-(2 * worker_num - accumulated_workers) + math.sqrt((2 * worker_num - accumulated_workers)**2 + 8 * accumulated_workers * task_count)) / (2 * accumulated_workers)) - 1) * accumulated_workers
-    # )
-
-    # Set task count as safe concurrency bound due to unpredictable task duration.
-    return task_count
     
 # A custom print function that sets `flush=True`` by default to ensure immediate output to stdout, useful when redirecting output to a file.
 def print(*args, **kwargs):
