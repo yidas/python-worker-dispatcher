@@ -428,7 +428,7 @@ The suitable application scenarios are as follows:
           │     └─ Sub Pool : 10 Thread(s)
           └─ Total Concurrency: 100 (10p x 10t) Active Worker(s)
       ```
-  - Scenario: For a stress test starting with 10 concurrent requests, add 10 new requests every second regardless of whether previous requests have completed.
+  - Scenario: For a stress test, send 10 concurrent requests every second regardless of whether previous requests have completed.
       ```bash
         Worker Dispatcher Configuration:
         - Local CPU core: 10
@@ -447,7 +447,7 @@ The suitable application scenarios are as follows:
           │     └─ Sub Pool : 10 Thread(s)
           └─ Total Concurrency: 100 (10p x 10t) Active Worker(s)
       ```
-  - Scenario: For a stress test starting with 10 concurrent requests, increase the request count by 10 every second, cumulatively, regardless of whether previous requests have completed.
+  - Scenario: For a stress test, start with 10 concurrent requests and increase the request count by 10 each second from the previous level, regardless of whether previous requests have completed. (e.g., 10, 20, 30, ... concurrent requests per second)
       ```bash
         Worker Dispatcher Configuration:
         - Local CPU core: 10
